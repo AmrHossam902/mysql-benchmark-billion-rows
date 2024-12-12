@@ -1,0 +1,7 @@
+node_modules/
+test.js
+citiesStats.txt
+jobsStats.txt 
+usersStats.txt
+fake.json
+draft-readme.md
