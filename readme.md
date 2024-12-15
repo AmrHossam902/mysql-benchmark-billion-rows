@@ -61,7 +61,7 @@ the plan is to populate the tables before testing to contain these number of row
         this is the time taken to insert **2 million** rows in the city table, it took about **21 mins**, which is very slow if want to apply the same approach to the users table
 
 
-2. repeat the previous step with **0.5 GB** *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* 
+2. **repeat the previous step with **0.5 GB** *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)***
     
     - open a Mysql session through terminal / any DB management tool 
         - run this command:<br/>
@@ -132,7 +132,7 @@ the plan is to populate the tables before testing to contain these number of row
         - it takes so long at bulk No. 100, so we decided not to complete the insertion opertation ( **99,900** bulks were remaining to complete 1 billion records )
 
 
-3. repeat the insertion process with auto increment ID instead of UUID
+3. **repeat the insertion process with auto increment ID instead of UUID**
     
     - use **[fakeDbAutoInc.js](./scripts/fakeDbAutoInc.js)**.
         - this file is just a modification over the previous one **[fakedbInitial.js](./scripts/fakeDbInitial.js)** where we replace random UUIDs with sequential integers.
@@ -172,7 +172,7 @@ the plan is to populate the tables before testing to contain these number of row
         
         2. a non sequential primary key reduces  bulk insertion performance.
 
-4. repeat the insertion process with sequential UUID instead of Auto inc.
+4. **repeat the insertion process with sequential UUID instead of Auto inc.**
 
     - this test will show us the key factor behind the insertion performance degradation, whether it's caused by the randomness of the **PK** or by the data type(fixed varchar / integer) of the **PK**.
 
@@ -219,7 +219,7 @@ the plan is to populate the tables before testing to contain these number of row
     - by comparing against the results from the previous test, we are sure now that the key factor behind perfomance degradation was the randomness of the UUID not the UUID itself, however you can see that sequential integers are better. 
 
 
-5. revert back to AutoInc ID and delay index creation till insertion complete
+5. **revert back to AutoInc ID and delay index creation till insertion complete**
 
     - use **[fakeDbBillion.js](./scripts/fakeDbBillion.js)**
         - this script uses the AutoInc scheme
@@ -245,41 +245,69 @@ the plan is to populate the tables before testing to contain these number of row
 
 # building a partitioned table
     
-    we decided to add a new user table to the schema in the partitioned form so
-    we can compare the performance of operationg queries on both to see if we can benefit
-    from partitioning in case of having large number of rows
+- we decided to add a new user table to the schema in the partitioned form so
+we can compare the performance of operationg queries on both to see if we can benefit
+from partitioning in case of having large number of rows
 
-    both tables (user, user_partitioned) have the same data distribution
+- you can choose the best partition key according to your case or your need, here it seems real and rational to partition users just by the city they live in, this is just as example, you are free to do what you want (partition by birth year / job / ...) according to your case.
 
-    you can choose the best partition key according to your case or your need, here 
-    it seems real and rational to partition users just by the city the live in, this is just as example but you are free to do what you want (partition by birth year / job / ...) according to your case.
+- the table is partitioned by range, into 200 partitions, each covers a series of sequential ids of cities
 
-    [schema after adding partitioned table](./images/schema-after-adding-user-partitioned.png)
+- schema after adding the partitioned table 
+    ![schema after adding partitioned table](./images/schema-after-adding-user-partitioned.png)
 
-    partition key is (cityId)
-    table primary key is (id, cityId) this is because Mysql adds a restriction
-    that "the partition key must be a member of every unique key in the table"
+- data is distributed evenly across partitions ( ~ 5 million records per partition ).
+- columns in both tables (user & user_partitioned) have the same cardinality.
+
+- **restrictions:**
+    1. table primary key is **(id, cityId)**, this is because Mysql adds a restriction that
+        
+        > *[every unique key on the table must use every column in the table's partitioning expression](https://dev.mysql.com/doc/refman/8.4/en/partitioning-limitations-partitioning-keys-unique-keys.html)*.
+
+        ,and since the primary key is a unique key, then it should include the cityId.
+
+    2. you can't have foreign key constraints (cityId & jobId) inside a partitioned table,
+
+        > *[Foreign keys not supported for partitioned InnoDB tables](https://dev.mysql.com/doc/refman/8.4/en/partitioning-limitations.html)*. 
 
 
 # data distribution inside tables
 
-    - city and job tables have duplicates, so you can find multiple cities have the same name and multiple jobs have the same name.
+- city and job tables have duplicates, so you can find multiple cities have the same name and multiple jobs have the same name.
 
-    for the partitioned table:
-        - it's clear that users are partitioned by cityID
-        - since cities have duplicated names, then you should expect to find users in partion "A" with city name "london" ,and expect to find users in partition "K" with city name "london" however, the first "london" city has different ID from the second "london" city (2 different cities with same name).
+- for the partitioned table:
+    - it's clear that users are partitioned by cityID
+    - since cities have duplicate names, then you should expect to find users in partion "**A**" with city name "***london***" ,and expect to find users in partition "**K**" with city name "***london***" however, the first "***london***" city has different ID from the second "***london***" city (2 different cities with same name).
 
-        - the duplication is because of the limited random values provided by the faker package.
+- the duplication is because of the limited random values provided by the faker package.
     
-    - we decided to pick some cities and tweak their names to make them unique throughout the whole table to see the effect of operationg on unique values.
+- we decided to pick some cities and tweak their names to make them unique throughout the whole table to see the effect of operationg on unique values.
 
 
-# define the test method
-    - bash script
-    - hardware used
-    - mysql version
-    - linux 
-    - for each test check the corresponding folder to see the queries used and the detailed results.
+# testing environment
+- **bash script**
+    - the following tests are based on the bash script **[load-test.sh](./load-test.sh)**.
+    - the script initiates a mysqldump command and watches cpu & memory usage during the test.
+    - for each test we tweak these script parameters accordingly:
+        - **concurrency:** 
+            - number of concurrent connections firing queries
+        - **iterations:** 
+            - number of times to repeat the test (result will be avg of all iterations)
+        - **path-to-sql-script:** 
+            - path to the sql script containing queries to run
+
+- **machine specs**
+    - 11th Gen Intel® Core™ i7-11800H @ 2.30GHz × 16.
+    - 16 GB DDR4 memory.
+    - 1 TB crucial P2 NVMe SSD
+
+- **mysql version**
+    - 8.0.4 community edition
+    
+- **OS**
+    - Ubuntu 22.04.5 LTS 
+
+- for each benchmark check the corresponding folder to see the queries used and a detailed results report.
 
 # test1 (test O)    
 **filter users by non unique city name**<br/>
