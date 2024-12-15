@@ -1,12 +1,17 @@
 # Introduction
-this experiment shows what you actually expect when working with 1 billion record 
-database
+this experiment shows what you actually expect when working with 1 billion record database, it tests and compares the performance of queries on a single table of 1 billion records against another partitioned table of 1 billion records.
 
 
 
 # intial schema
-    [initial schema](./images/initial-schema.png)
+this is the schema that we will start with.
 
+![initial schema](./images/initial-schema.png)
+
+the plan is to populate the tables before testing to contain these number of rows:
+- user table: 1 billion records
+- city table: 2 million records
+- job table: 1 million records
 
 # problems that may arise
     - space issue 
@@ -14,180 +19,229 @@ database
         - disable binlog during insertion
 
 # building a 1 billion record table 
-1- building the table with random UUID + indexes before insertion 
-    - fakedb.js 
-    - couldn't complete it, it takes so long 
-    - use numbers listed first in the file for the 2000,000 records (cities table)
 
-    bulk # 1 took 0:3, 
-    bulk # 2 took 0:3, 
-    bulk # 3 took 0:2, 
-    bulk # 4 took 0:3, 
-    bulk # 5 took 0:4, 
-    bulk # 6 took 0:5, 
-    bulk # 7 took 0:5, 
-    bulk # 8 took 0:11, 
-    bulk # 9 took 0:20, 
-    bulk # 10 took 1:31, 
-    bulk # 11 took 1:42, 
-    bulk # 12 took 1:53, 
-    bulk # 13 took 1:2, 
-    bulk # 14 took 1:11, 
-    bulk # 15 took 1:18, 
-    bulk # 16 took 1:26, 
-    bulk # 17 took 2:35, 
-    bulk # 18 took 2:48, 
-    bulk # 19 took 2:54, 
-    bulk # 20 took 2:5
+* this section walks us through populating the database in different situations.
+* within each trial we do a little change and watch its effect on insertion performance.
+* each trial is associated with a **js** file that automates the inserion operation (scripts folder).
 
-
-2- repeat the previous step with 0.5GB buffer 
-    - display the new numbers from the second bulk
-    - number from cities table 
-        bulk # 1 took 0:3, 
-        bulk # 2 took 0:3, 
-        bulk # 3 took 0:3, 
-        bulk # 4 took 0:2, 
-        bulk # 5 took 0:3, 
-        bulk # 6 took 0:6, 
-        bulk # 7 took 0:3, 
-        bulk # 8 took 0:4, 
-        bulk # 9 took 0:5, 
-        bulk # 10 took 0:7, 
-        bulk # 11 took 0:6, 
-        bulk # 12 took 0:6, 
-        bulk # 13 took 0:7, 
-        bulk # 14 took 0:8, 
-        bulk # 15 took 0:7, 
-        bulk # 16 took 0:8, 
-        bulk # 17 took 0:8, 
-        bulk # 18 took 0:9, 
-        bulk # 19 took 0:10, 
-        bulk # 20 took 0:9, 
+1. **building the table with random UUID, add indexes before insertion**
     
-    - show numbers from the users table also
-        bulk # 1 took 0:21, 
-        bulk # 2 took 0:13, 
-        bulk # 3 took 0:16, 
-        bulk # 4 took 0:23, 
-        bulk # 5 took 0:27, 
-        bulk # 6 took 1:31, 
-                :
-        bulk # 23 took 4:8, 
-        bulk # 24 took 4:19, 
-        bulk # 25 took 5:47, 
-        bulk # 26 took 5:55, 
-        bulk # 27 took 5:41, 
-                :
-        bulk # 48 took 10:39, 
-        bulk # 49 took 10:37, 
-        bulk # 50 took 10:45, 
-        bulk # 51 took 10:49, 
-        bulk # 52 took 11:32, 
-        bulk # 53 took 10:7, 
-                : 
-        bulk # 95 took 12:25, 
-        bulk # 96 took 12:22, 
-        bulk # 97 took 13:14, 
-        bulk # 98 took 13:34, 
-        bulk # 99 took 13:38, 
-        bulk # 100 took 13:17, 
+    - this approach uses the intial schema  
+    - this test is done by running **[fakedbInitial.js](./scripts/fakeDbInitial.js)** 
+    - the test is done at **128 MB** *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)*.
+    - the script creates the schema for each table and the associated indexes first before insertion.
+    - the script creates a random UUID for each record
+    - insertion occurs in chunks where each chunk is 10K rows.
+    - this table shows time consumed to insert each bulk into city table
+   
+        | bulk No. | Time (MM:SS) |
+        |:---------:|:------------:|
+        |     1     |     0:03     |
+        |     2     |     0:03     |
+        |     3     |     0:02     |
+        |     4     |     0:03     |
+        |     5     |     0:04     |
+        |     6     |     0:05     |
+        |     7     |     0:05     |
+        |     8     |     0:11     |
+        |     9     |     0:20     |
+        |    10     |     1:31     |
+        |    11     |     1:42     |
+        |    12     |     1:53     |
+        |    13     |     1:02     |
+        |    14     |     1:11     |
+        |    15     |     1:18     |
+        |    16     |     1:26     |
+        |    17     |     2:35     |
+        |    18     |     2:48     |
+        |    19     |     2:54     |
+        |    20     |     2:05     |
 
 
-3- repeat the insertion process with auto increment ID instead of UUID
-    - by modifying DbBillion.js to replace UUID with autoInc and keep all other indexes 
-    - display the numbers from the 3rd bulk
-
-    bulk # 1 took 0:2, 
-    bulk # 2 took 0:1, 
-    bulk # 3 took 0:0, 
-    bulk # 4 took 0:1, 
-    bulk # 5 took 0:1, 
-    bulk # 6 took 0:1, 
-    bulk # 7 took 0:0, 
-    bulk # 8 took 0:1, 
-    bulk # 9 took 0:1,
-
-    bulk # 4988 took 0:0, 
-    bulk # 4989 took 0:1, 
-    bulk # 4990 took 0:0, 
-    bulk # 4991 took 0:1, 
-    bulk # 4992 took 0:1, 
-    bulk # 4993 took 0:2, 
-    bulk # 4994 took 0:0, 
-    bulk # 4995 took 0:1, 
-    bulk # 4996 took 0:0, 
-    bulk # 4997 took 0:1, 
-    bulk # 4998 took 0:0, 
-    bulk # 4999 took 0:1, 
-    bulk # 5000 took 0:1, 
-
-    reodering secondary indexes while insertion 
-    is more cheaper than reodering primary index
-
-    a non sequential primary key reduces  bulk insertion performance, bulk insert time became constant almost 1 sec after converting primary key to a sequential integer  
+        this is the time taken to insert **2 million** rows in the city table, it took about **21 mins**, which is very slow if want to apply the same approach to the users table
 
 
-4- repeat the insertion process with sequential UUID
- instead of Auto inc.
+2. repeat the previous step with **0.5 GB** *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* 
+    
+    - open a Mysql session through terminal / any DB management tool 
+        - run this command:<br/>
+        ```sql
+        SET GLOBAL innodb_buffer_pool_size = 536870912;
+        ```
 
-    bulk # 1 took 0:1, 
-    bulk # 2 took 0:0, 
-    bulk # 3 took 0:0, 
-    bulk # 4 took 0:0, 
-    bulk # 5 took 0:1, 
-    bulk # 6 took 0:1, 
-    bulk # 7 took 0:1, 
-    bulk # 8 took 0:1, 
-    bulk # 9 took 0:0, 
-    bulk # 10 took 0:1, 
-    bulk # 11 took 0:1, 
-    bulk # 12 took 0:1, 
-    bulk # 13 took 0:0, 
-            :
-            :
-            :
-    bulk # 4982 took 0:3, 
-    bulk # 4983 took 0:3, 
-    bulk # 4984 took 0:4, 
-    bulk # 4985 took 0:3, 
-    bulk # 4986 took 0:3, 
-    bulk # 4987 took 0:3, 
-    bulk # 4988 took 0:3, 
-    bulk # 4989 took 0:3, 
-    bulk # 4990 took 0:3, 
-    bulk # 4991 took 0:3, 
-    bulk # 4992 took 0:3, 
-    bulk # 4993 took 0:3, 
-    bulk # 4994 took 0:4, 
-    bulk # 4995 took 0:3, 
-    bulk # 4996 took 0:3, 
-    bulk # 4997 took 0:3, 
-    bulk # 4998 took 0:3, 
-    bulk # 4999 took 0:5, 
-    bulk # 5000 took 0:2, 
+    - rerun the same script again **[fakedbInitial.js](./scripts/fakeDbInitial.js)** 
+    - time tracked for insertion operations into the city table
 
-you can notice that performance is better when you have an AI int as PK
+        | Bulk No. | Time (MM:SS) |
+        |:--------:|:------------:|
+        |     1    |     0:03     |
+        |     2    |     0:03     |
+        |     3    |     0:03     |
+        |     4    |     0:02     |
+        |     5    |     0:03     |
+        |     6    |     0:06     |
+        |     7    |     0:03     |
+        |     8    |     0:04     |
+        |     9    |     0:05     |
+        |    10    |     0:07     |
+        |    11    |     0:06     |
+        |    12    |     0:06     |
+        |    13    |     0:07     |
+        |    14    |     0:08     |
+        |    15    |     0:07     |
+        |    16    |     0:08     |
+        |    17    |     0:08     |
+        |    18    |     0:09     |
+        |    19    |     0:10     |
+        |    20    |     0:09     |
 
-5- revert back to AUtoINc ID and delay index creation till insertion complete
-(fakeDbBillion.js)
+        - you can see that increasing the buffer pool size has its effect on the time consumed for bulks inserted after the table got large (e.g. bulks 18, 19, 20).
 
-    100,000,000 records took about 22 mins (stoppes the script)
+    
+    - checking the time consumed by inserting into "user" table
 
-    populating the table with 900_000_000 records took about 3hrs 20 mins.
+        | Bulk No. | Time (MM:SS) |
+        |:--------:|:------------:|
+        |     1    |     0:21     |
+        |     2    |     0:13     |
+        |     3    |     0:16     |
+        |     4    |     0:23     |
+        |     5    |     0:27     |
+        |     6    |     1:31     |
+        |    ...   |      ...     |
+        |    23    |     4:08     |
+        |    24    |     4:19     |
+        |    25    |     5:47     |
+        |    26    |     5:55     |
+        |    27    |     5:41     |
+        |    ...   |      ...     |
+        |    48    |    10:39     |
+        |    49    |    10:37     |
+        |    50    |    10:45     |
+        |    51    |    10:49     |
+        |    52    |    11:32     |
+        |    53    |    10:07     |
+        |    ...   |      ...     |
+        |    95    |    12:25     |
+        |    96    |    12:22     |
+        |    97    |    13:14     |
+        |    98    |    13:34     |
+        |    99    |    13:38     |
+        |   100    |    13:17     |
 
-    building index for firstName col at 100_000_000 took 6.5 mins
+        - it takes so long at bulk No. 100, so we decided not to complete the insertion opertation ( **99,900** bulks were remaining to complete 1 billion records )
 
-    building index for firstname col at 200_000_000 took 13.25 mins
 
-    building index for firstname col at 700_000_000 took 38.3 mins
+3. repeat the insertion process with auto increment ID instead of UUID
+    
+    - use **[fakeDbAutoInc.js](./scripts/fakeDbAutoInc.js)**.
+        - this file is just a modification over the previous one **[fakedbInitial.js](./scripts/fakeDbInitial.js)** where we replace random UUIDs with sequential integers.
+    
+    - checking time durations of insertion into "user" table again for the first 5000 bulks
 
-    building index for firstName col at 900_000_000 took 58 mins 
+        | Bulk No. | Time (MM:SS) |
+        |:--------:|:------------:|
+        |     1    |     0:02     |
+        |     2    |     0:01     |
+        |     3    |     0:00     |
+        |     4    |     0:01     |
+        |     5    |     0:01     |
+        |     6    |     0:01     |
+        |     7    |     0:00     |
+        |     8    |     0:01     |
+        |     9    |     0:01     |
+        |   ...    |      ...     |
+        |   4988   |     0:00     |
+        |   4989   |     0:01     |
+        |   4990   |     0:00     |
+        |   4991   |     0:01     |
+        |   4992   |     0:01     |
+        |   4993   |     0:02     |
+        |   4994   |     0:00     |
+        |   4995   |     0:01     |
+        |   4996   |     0:00     |
+        |   4997   |     0:01     |
+        |   4998   |     0:00     |
+        |   4999   |     0:01     |
+        |   5000   |     0:01     |
+
+    - notice the significant decrease in the insertion time just because of replacing random UUID with sequential integers
+    
+    - **this result shows us that**:
+        1. reodering secondary indexes while insertion is more cheaper than reodering primary index.
+        
+        2. a non sequential primary key reduces  bulk insertion performance.
+
+4. repeat the insertion process with sequential UUID instead of Auto inc.
+
+    - this test will show us the key factor behind the insertion performance degradation, whether it's caused by the randomness of the **PK** or by the data type(fixed varchar / integer) of the **PK**.
+
+    - use the script **[fakeDbSeqUUID.js](./scripts/fakeDbSeqUUID.js)**
+    
+    - we checked then the time consumed by each bulk till bulk No.5000 for the "user" table
+
+        | Bulk No. | Time (MM:SS) |
+        |:--------:|:------------:|
+        |     1    |     0:01     |
+        |     2    |     0:00     |
+        |     3    |     0:00     |
+        |     4    |     0:00     |
+        |     5    |     0:01     |
+        |     6    |     0:01     |
+        |     7    |     0:01     |
+        |     8    |     0:01     |
+        |     9    |     0:00     |
+        |    10    |     0:01     |
+        |    11    |     0:01     |
+        |    12    |     0:01     |
+        |    13    |     0:00     |
+        |   ...    |      ...     |
+        |   4982   |     0:03     |
+        |   4983   |     0:03     |
+        |   4984   |     0:04     |
+        |   4985   |     0:03     |
+        |   4986   |     0:03     |
+        |   4987   |     0:03     |
+        |   4988   |     0:03     |
+        |   4989   |     0:03     |
+        |   4990   |     0:03     |
+        |   4991   |     0:03     |
+        |   4992   |     0:03     |
+        |   4993   |     0:03     |
+        |   4994   |     0:04     |
+        |   4995   |     0:03     |
+        |   4996   |     0:03     |
+        |   4997   |     0:03     |
+        |   4998   |     0:03     |
+        |   4999   |     0:05     |
+        |   5000   |     0:02     |
+
+    - by comparing against the results from the previous test, we are sure now that the key factor behind perfomance degradation was the randomness of the UUID not the UUID itself, however you can see that sequential integers are better. 
+
+
+5. revert back to AutoInc ID and delay index creation till insertion complete
+
+    - use **[fakeDbBillion.js](./scripts/fakeDbBillion.js)**
+        - this script uses the AutoInc scheme
+        - it also delays index creation operations till all bulks are inserted.
+
+    - this method yeilds the best insertion performance, as:
+        - all records are ordered by nature because of sequential key
+        - there are no indexes to worry about while insertion. 
+    
+    - results:
+        - 100,000,000 records took about 22 mins.
+        - populating the table with 900_000_000 records took about 3hrs 20 mins.
+        - building index for firstName col when the table has 100_000_000 records took 6.5 mins
+        - building index for firstname col when the table has 200_000_000 records took 13.25 mins
+        - building index for firstname col when the table has 700_000_000 records took 38.3 mins
+        - building index for firstName col when the table has 900_000_000 records took 58 mins 
 
 # schema after updates
-    [schema after upadtes](./images/schema-after-updates.png)
-    - changing id cols to int instead ov varchar
-    - adding public ID column
+
+![schema after upadtes](./images/schema-after-updates.png)
+- changed id cols to integer Auto inc. instead of varchar
+- added public ID column (*just an additional col. to increase row width*)
 
 # building a partitioned table
     
