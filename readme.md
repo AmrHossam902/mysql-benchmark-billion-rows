@@ -285,16 +285,6 @@ from partitioning in case of having large number of rows
 
 
 # testing environment
-- **bash script**
-    - the following tests are based on the bash script **[load-test.sh](./load-test.sh)**.
-    - the script initiates a mysqldump command and watches cpu & memory usage during the test.
-    - for each test we tweak these script parameters accordingly:
-        - **concurrency:** 
-            - number of concurrent connections firing queries
-        - **iterations:** 
-            - number of times to repeat the test (result will be avg of all iterations)
-        - **path-to-sql-script:** 
-            - path to the sql script containing queries to run
 
 - **machine specs**
     - 11th Gen Intel® Core™ i7-11800H @ 2.30GHz × 16.
@@ -303,122 +293,319 @@ from partitioning in case of having large number of rows
 
 - **mysql version**
     - 8.0.4 community edition
-    
+
 - **OS**
     - Ubuntu 22.04.5 LTS 
 
-- for each benchmark check the corresponding folder to see the queries used and a detailed results report.
+
+# How are tests evaluated
+
+- the following tests are based on the bash script **[load-test.sh](./load-test.sh)**.
+    - the script initiates a mysqldump command and watches **cpu** & **memory** usage during the test.
+    - for each test we tweak these parameters inside the script accordingly:
+        - **concurrency:** 
+            - number of concurrent connections firing queries
+        - **iterations:** 
+            - number of times to repeat the test (result will be avg of all iterations), this is essential to avoid misleading values generated before warming up or in case data is cached. 
+        - **path-to-sql-script:** 
+            - path to the sql script containing queries to run **per connection**
+
+            > queries inside the sql file are similar in structure most of the time but differ in values associated with where clauses, we did that to force MySQL to use different parts of tables involved instead of using a group of cached pages ( happens when you fire the same query multiple times ) which is not like the real world.
+    
+- for each benchmark check the corresponding folder (**tests**) to see the queries used and a detailed results report.
+    - the test is either on the single table or on the partitioned table
+    - test results are 2 files:
+        - load-test-profile :
+            - contain the whole cpu & memory values sampled during the test
+                > samples are recorded against the **mysqld** service. 
+        - load-test-results :
+            - contain average values for time, cpu & memory.
+            
+            **e.g.**
+            <pre>
+
+                Average number of seconds to run all queries: 330.215 seconds
+                Minimum number of seconds to run all queries: 305.508 seconds
+                Maximum number of seconds to run all queries: 346.523 seconds
+                Number of clients running queries: 3
+                Average number of queries per client: 5
+
+                samples = 9287
+
+                avgMem = 25.64 %
+                maxMem = 26.2
+                minMem = 7.5
+
+                avgCpu = 4.53 %
+                minCpu = 0
+                maxCpu = 37.50
+            </pre>
+
+            - min, max and avg no of seconds are calculated across all iteration, ie: we calculate the time consumed by each iteration separately, and then we get the min, the max &  calculate the average **(t<sub>itr1</sub> +  t<sub>itr2</sub> + t<sub>itr3</sub> + ...) / #itr** of all.
+
 
 # test1 (test O)    
 **filter users by non unique city name**<br/>
-- this test shows the performance when running a auery that filters the large table by a field in a second joined table 
 
-- the test uses 20 queries per file
+- **purpose:**<br/>
+    <p style="padding-left:20px;">
+        this test shows the performance when running a query that filters the large table by a field in a second joined table.
+    </p>
+
+- **description:**
+    <p style="padding-left:20px;">
+       this test is run at <strong>128 MB</strong> <i><a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size">innodb_buffer_pool_size</a></i>, once on the single table, and once on the partitioned table.    
+    </p>
 
 
-**queries involved:**
-* single table:
-    ```sql
-    select * from population.user 
-        left join city on user.cityId = city.id 
-        left join job on user.jobId = job.id 
-    where 
-        city.name = 'Aaliyahberg' 
-    limit 20;
+
+- **query to be tested:**
+    <p style="padding-left:20px;">
+        we have 2 sql files (<a href="./tests/test%201/single-table.sql">single-table.sql</a>,  <a href="./tests/test%201/partitioned-table.sql">partitioned- table.sql</a>) , with 20 queries per each file, one contains queries to be run on the single table and the other contains queries to be run on the partitioned table, queries in each file have these forms:
+    </p>
+
+    - single table:
+        ```sql
+        select * from population.user 
+            left join city on user.cityId = city.id 
+            left join job on user.jobId = job.id 
+        where 
+            city.name = 'CITY_NAME' 
+        limit 20;
+        ```
+    - partitioned table:
+        ```sql
+        select * from population.user_partitioned 
+            left join city on user_partitioned.cityId = city.id 
+            left join job on user_partitioned.jobId = job.id 
+        where 
+            city.name = 'CITY_NAME' 
+        limit 20;
+        ```
+<br/><br/>  
+
+- **results** :<br/>
+    - test at 128MB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :<br/><br/>
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <tr>
+                <th rowspan="2">Concurrency</th>
+                <th colspan="3">Single Table</th>
+                <th colspan="3">Partitioned Table</th>
+            </tr>
+            <tr>
+                <th>Avg Mem</th>
+                <th>Avg CPU</th>
+                <th>Avg Time (sec)</th>
+                <th>Avg Mem</th>
+                <th>Avg CPU</th>
+                <th>Avg Time (sec)</th>
+            </tr>
+            <tr>
+                <td>50</td>
+                <td>4.30%</td>
+                <td>47.77%</td>
+                <td>0.092</td>
+                <td>4.30%</td>
+                <td>62.64%</td>
+                <td>0.140</td>
+            </tr>
+            <tr>
+                <td>100</td>
+                <td>4.30%</td>
+                <td>61.39%</td>
+                <td>0.168</td>
+                <td>4.30%</td>
+                <td>73.82%</td>
+                <td>0.296</td>
+            </tr>
+            <tr>
+                <td>200</td>
+                <td>4.32%</td>
+                <td>71.89%</td>
+                <td>0.314</td>
+                <td>4.43%</td>
+                <td>77.35%</td>
+                <td>0.624</td>
+            </tr>
+            <tr>
+                <td>400</td>
+                <td>5.23%</td>
+                <td>83.92%</td>
+                <td>0.753</td>
+                <td>5.94%</td>
+                <td>85.34%</td>
+                <td>0.848</td>
+            </tr>
+        </table>
+
+        by comparing time elapsed during the test, we can see that:<br/>
+        - a single table is better in case we just need filtering.
+            - the reason is because the table partitions each has it's own index, so
+                the engine will need to search separately throughout each index and collect 
+                the results from each and this involves read of non adjacent index pages from the disk, while on the opposite side, the optimizer needs to search only once and fetch all the needed pages of the index at once.
+
+        - performance is acceptable when filtering through an index of a large table
+<br/><br/>
+
+- **comparing the plans of each** :
+    - single table: <br/> 
+        ![single table plan](./tests/test%201/images/visual-plan.png)
+
+    - partitioned table: <br/> 
+        ![partitioned table plan](./tests/test%201/images/visual-plan-partitioned.png)
+
+    they show similar plans, where the optimizer :
+        
+    1. uses the name_index to find the atual rows from the city table that satisfies the where clause.
+        
+    2. after reading the rows from city table, it uses the cityId field to initiate a search into the cityId index of the users table, then it reads the actual rows satisfying the join condition (cityId = user.cityId), then rows from the users table are joined to the rows fetched from city table.
+
+    3. it then uses the jobId field from the rows from the users table to issue a search into the job primary index.<br/>
+
+# test2 (test O')
+**filter users by non unique city name + sorting by user firstName column**
+
+- **purpose :**<br/>
+    <p style="padding-left:20px;">
+        this test adds further restriction to the previous one, where we need to sort results by a field in the <strong>large table</strong> after filtering by a field in the <strong>second table</strong>.
+    </p>
+
+
+- **description :** 
+    <div style="padding-left:20px;">
+       run the test for the single & the partitioned tables at different values of <i><a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size">innodb_buffer_pool_size</a></i> :<br/>
+       <ul>
+            <li><strong>128 MB</strong></li>
+            <li> <strong>3 GB</strong></li>
+       </ul>
+    </div>
+
+- **query to be tested :**
+    <p style="padding-left:20px;">
+        we have 2 sql files (<a href="./tests/test%202/single-table.sql">single-table.sql</a>,  <a href="./tests/test%202/partitioned-table.sql">partitioned- table.sql</a>) , with <strong>5 queries per each file</strong>, one contains queries to be run on the single table and the other contains queries to be run on the partitioned table, queries in each file have these forms:
+    </p>
+
+    - single table: 
+        ```sql
+            select * from population.user 
+                left join city on user.cityId = city.id 
+                left join job on user.jobId = job.id 
+            where 
+                city.name = 'CITY_NAME'
+            order by firstName
+            limit 20;
+        ```
+    - partitioned table:
+        ```sql
+            select * from population.user_partitioned 
+                left join city on user_partitioned.cityId = city.id 
+                left join job on user_partitioned.jobId = job.id 
+            where 
+                city.name = 'CITY_NAME'
+            order by firstName
+            limit 20;
+        ```
+    
+
+- **results :**
+
+    - 128MB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :<br/>
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <tr>
+                <th rowspan="2">concurrency</th>
+                <th colspan="3">single table</th>
+                <th colspan="3">partitioned table</th>
+            </tr>
+            <tr>
+                <th>avg Mem</th>
+                <th>avg cpu</th>
+                <th>time (sec)</th>
+                <th>avg Mem</th>
+                <th>avg cpu</th>
+                <th>time (sec)</th>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>6.00 %</td>
+                <td>4.51 %</td>
+                <td>369.229</td>
+                <td>6.00 %</td>
+                <td>4.66 %</td>
+                <td>362.141</td>
+            </tr>
+            <tr>
+                <td>6</td>
+                <td>6.00 %</td>
+                <td>15.15 %</td>
+                <td>377.285</td>
+                <td>6.00 %</td>
+                <td>16.33 %</td>
+                <td>364.627</td>
+            </tr>
+        </table>
+
+
+    - 3GB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <tr>
+                <th rowspan="2">concurrency</th>
+                <th colspan="3">single table</th>
+                <th colspan="3">partitioned table</th>
+            </tr>
+            <tr>
+                <th>avg Mem</th>
+                <th>avg cpu</th>
+                <th>time (sec)</th>
+                <th>avg Mem</th>
+                <th>avg cpu</th>
+                <th>time (sec)</th>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>25.64 %</td>
+                <td>4.53 %</td>
+                <td>330.215</td>
+                <td>21.66 %</td>
+                <td>4.50 %</td>
+                <td>328.121</td>
+            </tr>
+        </table>
+        <br/>
+    from the test it's clear that the performance is the same for `single / partitioned` tables
+    
+
+- **comparing the plans of each** :
+    - single table :<br/>
+    ![single table](./tests/test%202/images/single-table-plan.png)
+    
+    - partitioned table :<br/>
+        - visual plan: <br/>
+        ![partitioned table](./tests/test%202/images/partitioned-table-plan.png)
+        <br/><br/>
+        - tabular plan: <br/>
+        ![partitioned table tabular](./tests/test%202/images/partitioned-table-tabular.png)
+    
+    it's clear that the optimizer shows the same plan for both queries `single / partitioned`.
+    
+    you can also notice that all partitions are searched , that's obvoius because we 
+    didn't instruct it to focus on a specific partition, in addition, the city name column
+    is a non unique column, so the optimizer doesn't exactly know how to relate the name value in the query with the partition key (cityId), therfore it just issues the search
+    through all partitions. 
+    
+    the query will be fast if you just focus on a specific partition but the result 
+    will be related only to this partition not the whole table.
+    
+    checking the execution plan for the query on a single table:<br/>
     ```
-* partitioned table:
-    ```sql
-    select * from population.user_partitioned 
-        left join city on user_partitioned.cityId = city.id 
-        left join job on user_partitioned.jobId = job.id 
-    where 
-        city.name = 'Aaliyahberg' 
-    limit 20;
+        -> Limit: 20 row(s)  (actual time=66653..66653 rows=20 loops=1)
+            -> Sort: `user`.firstName, limit input to 20 row(s) per chunk  (actual time=66653..66653 rows=20 loops=1)
+                -> Stream results  (cost=278467 rows=193650) (actual time=2.76..66487 rows=197179 loops=1)
+                    -> Nested loop left join  (cost=278467 rows=193650) (actual time=2.74..66059 rows=197179 loops=1)
+                        -> Nested loop inner join  (cost=210690 rows=193650) (actual time=2.72..62682 rows=197179 loops=1)
+                            -> Index lookup on city using name_index (name='vancouver'), with index condition: (city.id is not null)  (cost=153 rows=437) (actual time=0.236..40.6 rows=437 loops=1)
+                            -> Index lookup on user using cityId (cityId=city.id)  (cost=438 rows=443) (actual time=0.927..143 rows=451 loops=437)
+                        -> Single-row index lookup on job using PRIMARY (id=`user`.jobId)  (cost=0.25 rows=1) (actual time=0.0168..0.0169 rows=1 loops=197179)
     ```
     
-<!-- 128MB buffer
-
-| concurrency | avg Mem | avg cpu | time (sec) | avg Mem | avg cpu | time (sec) | 
-|-------------|:-------:|:-------:|:----:      |:-------:|:-------:|:----:      |
-| 50          | 4.30 %  | 47.77 % | 0.092      | 4.30 %  | 62.64 % |0.140       | 
-| 100         | 4.30 %  | 61.39 % | 0.168      | 4.30 %  | 73.82 % |0.296       |
-| 200         | 4.32 %  | 71.89 % | 0.314      | 4.43 %  | 77.35 % |0.624       |
-| 400         | 5.23 %  | 83.92 % | 0.753      | 5.94 %  | 85.34 % |0.848       | -->
-
-test at at 128MB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)*:
-<table border="1" style="border-collapse: collapse; text-align: center;">
-  <tr>
-    <th rowspan="2">Concurrency</th>
-    <th colspan="3">Single Table</th>
-    <th colspan="3">Partitioned Table</th>
-  </tr>
-  <tr>
-    <th>Avg Mem</th>
-    <th>Avg CPU</th>
-    <th>Time (sec)</th>
-    <th>Avg Mem</th>
-    <th>Avg CPU</th>
-    <th>Time (sec)</th>
-  </tr>
-  <tr>
-    <td>50</td>
-    <td>4.30%</td>
-    <td>47.77%</td>
-    <td>0.092</td>
-    <td>4.30%</td>
-    <td>62.64%</td>
-    <td>0.140</td>
-  </tr>
-  <tr>
-    <td>100</td>
-    <td>4.30%</td>
-    <td>61.39%</td>
-    <td>0.168</td>
-    <td>4.30%</td>
-    <td>73.82%</td>
-    <td>0.296</td>
-  </tr>
-  <tr>
-    <td>200</td>
-    <td>4.32%</td>
-    <td>71.89%</td>
-    <td>0.314</td>
-    <td>4.43%</td>
-    <td>77.35%</td>
-    <td>0.624</td>
-  </tr>
-  <tr>
-    <td>400</td>
-    <td>5.23%</td>
-    <td>83.92%</td>
-    <td>0.753</td>
-    <td>5.94%</td>
-    <td>85.34%</td>
-    <td>0.848</td>
-  </tr>
-</table>
-
-by comparing time elapsed during the test, we can see that:
-    - a single table is better in case we just need filtering.
-        - the reason is because the table partitions each has it's own index, so
-        the engine will need to search separately throughout each index and collect 
-        the results from each and this involves read of non adjacent index pages from the disk, while on the opposite side, the optimizer needs to search only once and fetch all the needed pages of the index at once.
-
-    - performance is acceptable when filtering through an index of a large table
-
-checking the plans for each
-
-* single table<br/> 
-    ![single table plan](./tests/test%20O/images/visual-plan.png)
-
-* partitioned table<br/> 
-    ![partitioned table plan](./tests/test%20O/images/visual-plan-partitioned.png)
-
- they show similar plans, where the optimizer:
- 1. uses the name_index to find the atual rows from the city table that satisfies the 
- where clause.
- 
- 2. after reading the rows from city table, it uses the cityId field to initiate a search into the cityId index of the users table, then it reads the actual rows satisfying the join condition (cityId = user.cityId), then rows from the users table are joined to the rows fetched from city table.
-
- 3. it then uses the jobId field from the rows from the users table to issue a search into 
- the job primary index.
+    it's clear that most of the time is consumed preparing data and not the sort phase 
+    that's slowing down the query, so if you removed the "order by" clause and changed the limit to a number close to the join result (190979), you will end up with almost the same "execution" time.
