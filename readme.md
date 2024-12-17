@@ -793,9 +793,229 @@ from partitioning in case of having large number of rows
 
             if the percentage of males in the user table is **25%** while percentage of females is **75%**, then you should expect the query with `gender = 1`(**i.e. male**) clause to take more time than the case if the percentages were **50%**, **50%** respectively.
 
+
+
+# test4 ( test O2 )
+
+**filter users by unique city name + sorting by user firstName column**
+
+- **purpose :**
+
+    this test uses unique city names instead of duplicate ones, i.e. if you queried the city table with any of the names to be used in this test, then you'll get only a single record.
+    
+    the purpose here is to limit the work done to a specific partition as all users related to a unique city will exist in a single partition, so we can see the effect of this change on performance of queries.
+
+
+- **description :** 
+
+   run the test for the single & the partitioned tables at  **128 MB** & **3 GB** <i><a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size">innodb_buffer_pool_size</a></i> with differnt number of concurrent users <br/>
+
+
+- **queries to be used :**
+
+    just like previous tests, we have 2 sql files  (<a href="./tests/test%204/single-table.sql">single-table.sql</a>,  <a href="./tests/test%204/partitioned-table.sql">partitioned- table.sql</a>) , with <strong>20 queries per each file</strong>
+
+    queries have this form:
+
+    - single table: 
+        ```sql
+        select * from population.user
+            left join city on user.cityId = city.id 
+            left join job on user.jobId = job.id 
+        where 
+            city.name = 'CITY_NAME'
+        order by firstName
+        limit 20;
+        ```
+
+    - partitioned table:
+        ```sql
+        select * from population.user_partitioned
+            left join city on user_partitioned.cityId = city.id 
+            left join job on user_partitioned.jobId = job.id 
+        where 
+            city.name = 'CITY_NAME'
+        order by firstName
+        limit 20;
+        ```       
+
+- **results :**
+
+    - at 128MB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :
+
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <thead>
+                <tr>
+                    <th rowspan="2">concurrency</th>
+                    <th colspan="3">single table</th>
+                    <th colspan="3">partitioned table</th>
+                </tr>
+                <tr>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>5</td>
+                    <td>3.86 %</td>
+                    <td>13.03 %</td>
+                    <td>251.718</td>
+                    <td>3.90 %</td>
+                    <td>22.79 %</td>
+                    <td>81.690</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>3.96 %</td>
+                    <td>40.90 %</td>
+                    <td>427.724</td>
+                    <td>4.00 %</td>
+                    <td>46.86 %</td>
+                    <td>63.212</td>
+                </tr>
+                <tr>
+                    <td>20</td>
+                    <td>4.13 %</td>
+                    <td>65.25 %</td>
+                    <td>510.593</td>
+                    <td>4.20 %</td>
+                    <td>69.24 %</td>
+                    <td>106.962</td>
+                </tr>
+            </tbody>
+        </table>
+
+
+    - at 3GB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :
+
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <thead>
+                <tr>
+                    <th rowspan="2">concurrency</th>
+                    <th colspan="3">single table</th>
+                    <th colspan="3">partitioned table</th>
+                </tr>
+                <tr>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>5</td>
+                    <td>21.73 %</td>
+                    <td>10.28 %</td>
+                    <td>280.077</td>
+                    <td>21.01 %</td>
+                    <td>17.32 %</td>
+                    <td>19.712</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>22.00 %</td>
+                    <td>37.30 %</td>
+                    <td>320.456</td>
+                    <td>22.02 %</td>
+                    <td>53.62 %</td>
+                    <td>13.762</td>
+                </tr>
+                <tr>
+                    <td>20</td>
+                    <td>24.10 %</td>
+                    <td>58.13 %</td>
+                    <td>580.369</td>
+                    <td>24.09 %</td>
+                    <td>68.76 %</td>
+                    <td>48.340</td>
+                </tr>
+            </tbody>
+        </table>
+
+    **Observations :**
+
+    - there is significant improvement in performance in favor of the partitioned table over the single one.
+    - increasing buffer pool size improves overall performance.
+
+- **comparing the plans of each** :
+
+    * single 
         
-    
-    
+        ![single table](./tests/test%204/images/single-table.png)
+
+    * partitioned
+        
+        - visual form :
+            
+            ![partitioned-table](./tests/test%204/images/partitioned-table.png)
+        
+        - tabular form :
+            
+            ![partitioned-table-tabular](./tests/test%204/images/partitioned-table-tablular.png)
+
+
+    **Observations :**
+
+    - query plan is the same for both queries.
+    - the queries for the partitioned table shows no pruning for the partitions even after using unique names.
+
+
+- **comparing execution plans :**
+
+    - single table 
+
+        ```text
+        -> Limit: 20 row(s)  (actual time=51065..51065 rows=20 loops=1)
+            -> Sort: `user`.firstName, limit input to 20 row(s) per chunk  (actual time=51065..  51065 rows=20 loops=1)
+                -> Stream results  (cost=722 rows=443) (actual time=2.17..50919 rows=199272 loops=1)
+                    -> Nested loop left join  (cost=722 rows=443) (actual time=2.13..50515 rows=199272 loops=1)
+                        -> Nested loop inner join  (cost=488 rows=443) (actual time=2.08..48995 rows=199272 loops=1)
+                            -> Index lookup on city using name_index (name='Vacaville unique'), with index condition: (city.id is not null)  (cost=1.1 rows=1) (actual time=0.237..0.263 rows=1 loops=1)
+                            -> Index lookup on user using cityId (cityId=city.id)  (cost=487 rows=443) (actual time=1.4..48964 rows=199272 loops=1)
+                        -> Single-row index lookup on job using PRIMARY (id=`user`.jobId)  (cost=0.427 rows=1) (actual time=0.00735..0.00738 rows=1 loops=199272)
+        ```
+
+    - partitioned table
+
+        ```text
+        Limit: 20 row(s)  (actual time=2565..2565 rows=20 loops=1)
+            -> Sort: user_partitioned.firstName, limit input to 20 row(s) per chunk  (actual time=2565..2565 rows=20 loops=1)
+                -> Stream results  (cost=694 rows=478) (actual time=2.51..2464 rows=209554 loops=1)
+                    -> Nested loop left join  (cost=694 rows=478) (actual time=2.5..2208 rows=209554 loops=1)
+                        -> Nested loop inner join  (cost=527 rows=478) (actual time=2.49..1794 rows=209554 loops=1)
+                            -> Index lookup on city using name_index (name='Vacaville unique'), with index condition: (city.id is not null)  (cost=1.1 rows=1) (actual time=0.44..0.444 rows=1 loops=1)
+                            -> Index lookup on user_partitioned using cityId_index (cityId=city.id)  (cost=525 rows=478) (actual time=1.75..1782 rows=209554 loops=1)
+                        -> Single-row index lookup on job using PRIMARY (id=user_partitioned.jobId)  (cost=0.25 rows=1) (actual time=0.0018..0.00182 rows=1 loops=209554)
+        ```
+
+    **Observations :**
+
+    - time consumed in cityId index lookup is the most dominant factor in the total time consumed:
+        - for the single table, it took **48964 ms** ≈ **49 sec**.
+        - for the partitioned table, it took **1782 ms** ≈ **1.8 sec**.
+
+    - the huge difference between time consumption is because the fact that:
+        - the 199K rows returned in case of a single table were read by searching the cityId index whose size is 857599 pages
+
+            ![index size single table](./tests/test%204/images/index-size-single-table.png)
+        
+        - the 209K rows returned in case of a partitioned table were read from a **single partition** (because we used a unique city, so all users will exist in a single partition) by searching the cityId index whose size is  4582 pages.
+
+            ![index size partitioned table](./tests/test%204/images/index-size-partitioned-table.png)
+
+            **Note :**
+            
+            > in a partitioned table, each partition has it's own set of indexes.
+
+
 
 
 
