@@ -1,0 +1,17 @@
+Benchmark
+	Average number of seconds to run all queries: 1.388 seconds
+	Minimum number of seconds to run all queries: 1.326 seconds
+	Maximum number of seconds to run all queries: 1.494 seconds
+	Number of clients running queries: 20
+	Average number of queries per client: 20
+
+
+samples = 39
+
+avgMem = 3.00 %
+maxMem = 3.0
+minMem = 3.0
+
+avgCpu = 79.56 %
+minCpu = 0
+maxCpu = 89.18

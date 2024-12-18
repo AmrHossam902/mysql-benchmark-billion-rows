@@ -1007,7 +1007,7 @@ from partitioning in case of having large number of rows
 
             ![index size single table](./tests/test%204/images/index-size-single-table.png)
         
-        - the 209K rows returned in case of a partitioned table were read from a **single partition** (because we used a unique city, so all users will exist in a single partition) by searching the cityId index whose size is  4582 pages.
+        - the 209K rows returned in case of a partitioned table were read from a **single partition** (because we used a unique city, so all related users will exist in a single partition) by searching the cityId index whose size is  4582 pages.
 
             ![index size partitioned table](./tests/test%204/images/index-size-partitioned-table.png)
 
@@ -1016,9 +1016,230 @@ from partitioning in case of having large number of rows
             > in a partitioned table, each partition has it's own set of indexes.
 
 
+# test5 (test O3)
+
+**optimize test4 by using IDs instead of using string values**
+
+- **purpose :**
+
+    this test is an optimization over the last one, where we provide cityId instead of cityName in the where clause, the goal is to check the performance and watch if partition pruning will be used or not.
 
 
+- **description :** 
 
-       
+   run the test for the single & the partitioned tables at  **128 MB** & **3 GB** <i><a href="https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size">innodb_buffer_pool_size</a></i> with differnt number of concurrent users <br/>
+
+
+- **queries to be used :**
+
+    just like previous tests, we have 2 sql files  (<a href="./tests/test%204/single-table.sql">single-table.sql</a>,  <a href="./tests/test%204/partitioned-table.sql">partitioned- table.sql</a>) , with <strong>20 queries per each file</strong>
+
+    queries have this form:
+
+    - single table :
+
+        ```sql
+        select * from population.user 
+            left join city on user.cityId = city.id 
+            left join job on user.jobId = job.id 
+        where 
+            city.id = 328026 
+        order by firstName
+        limit 20;
+        ```
+
+    - partitioned table :
+
+        ```sql
+        select * from user_partitioned 
+            left join city on user_partitioned.cityId = city.id 
+            left join job on user_partitioned.jobId = job.id 
+        where 
+            city.id = 328026 
+            order by firstName
+        limit 20;
+        ```
+
+- **results :**
+
+    - at 128MB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :
+
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <thead>
+                <tr>
+                    <th rowspan="2">concurrency</th>
+                    <th colspan="3">single table</th>
+                    <th colspan="3">partitioned table</th>
+                </tr>
+                <tr>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>5</td>
+                    <td>2.90 %</td>
+                    <td>30.87 %</td>
+                    <td>3.261</td>
+                    <td>2.90 %</td>
+                    <td>12.48 %</td>
+                    <td>3.624</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>2.90 %</td>
+                    <td>59.44 %</td>
+                    <td>4.973</td>
+                    <td>2.90 %</td>
+                    <td>55.43 %</td>
+                    <td>0.788</td>
+                </tr>
+                <tr>
+                    <td>20</td>
+                    <td>3.00 %</td>
+                    <td>72.60 %</td>
+                    <td>9.795</td>
+                    <td>3.00 %</td>
+                    <td>79.56 %</td>
+                    <td>1.388</td>
+                </tr>
+                <tr>
+                    <td>40</td>
+                    <td>3.09 %</td>
+                    <td>75.07 %</td>
+                    <td>18.499</td>
+                    <td>3.10 %</td>
+                    <td>80.92 %</td>
+                    <td>2.470</td>
+                </tr>
+                <tr>
+                    <td>80</td>
+                    <td>3.37 %</td>
+                    <td>88.47 %</td>
+                    <td>80.618</td>
+                    <td>3.48 %</td>
+                    <td>81.67 %</td>
+                    <td>4.513</td>
+                </tr>
+                <tr>
+                    <td>150</td>
+                    <td>4.69 %</td>
+                    <td>84.63 %</td>
+                    <td>277.542</td>
+                    <td>5.09 %</td>
+                    <td>86.39 %</td>
+                    <td>22.640</td>
+                </tr>
+            </tbody>
+        </table>
+
+    - at 3GB *[innodb_buffer_pool_size](https://dev.mysql.com/doc/refman/8.4/en/innodb-parameters.html#sysvar_innodb_buffer_pool_size)* :
+
+        <table border="1" style="border-collapse: collapse; text-align: center;">
+            <thead>
+                <tr>
+                    <th rowspan="2">concurrency</th>
+                    <th colspan="3">single table</th>
+                    <th colspan="3">partitioned table</th>
+                </tr>
+                <tr>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                    <th>avg Mem</th>
+                    <th>avg cpu</th>
+                    <th>time (sec)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>5</td>
+                    <td>21.96 %</td>
+                    <td>29.53 %</td>
+                    <td>2.781</td>
+                    <td>24.30 %</td>
+                    <td>20.72 %</td>
+                    <td>0.775</td>
+                </tr>
+                <tr>
+                    <td>10</td>
+                    <td>24.30 %</td>
+                    <td>46.46 %</td>
+                    <td>6.666</td>
+                    <td>24.30 %</td>
+                    <td>44.39 %</td>
+                    <td>0.542</td>
+                </tr>
+                <tr>
+                    <td>20</td>
+                    <td>24.30 %</td>
+                    <td>79.24 %</td>
+                    <td>7.980</td>
+                    <td>24.30 %</td>
+                    <td>62.64 %</td>
+                    <td>1.096</td>
+                </tr>
+                <tr>
+                    <td>40</td>
+                    <td>24.30 %</td>
+                    <td>88.78 %</td>
+                    <td>14.142</td>
+                    <td>24.30 %</td>
+                    <td>78.56 %</td>
+                    <td>1.437</td>
+                </tr>
+                <tr>
+                    <td>80</td>
+                    <td>24.30 %</td>
+                    <td>87.20 %</td>
+                    <td>33.038</td>
+                    <td>24.30 %</td>
+                    <td>85.48 %</td>
+                    <td>3.336</td>
+                </tr>
+                <tr>
+                    <td>150</td>
+                    <td>24.39 %</td>
+                    <td>89.87 %</td>
+                    <td>57.980</td>
+                    <td>24.40 %</td>
+                    <td>86.88 %</td>
+                    <td>5.913</td>
+                </tr>
+            </tbody>
+        </table>
 
     
+    **Observations** 
+
+    - time consumed by queries operating on partitioned tables is much less.
+    - the advantage of using the partitioned table is significant at large number of concurrent users.
+    - queries are after replacing names with integers are much faster than the previous test.
+    - the more buffer you have, the better the performance is.
+
+- **compare query plans :**
+
+    - single table : 
+        
+        ![single table plan](./tests/test%205/images/single-table-plan.png)
+    
+    - partitioned table :
+
+        - visual form :
+
+            ![partitioned table plan](./tests/test%205/images/partitioned-table-plan.png)
+
+        - tabular form :
+
+            ![partitioned table tabular](./tests/test%205/images/partitioned-table-plan-tabular.png)
+
+
+    **Observations :**
+
+    - city table primary key is used to search for the city directly
+    - the tabular plan shows that it used partition **p32** only to look into unlike previous tests.
