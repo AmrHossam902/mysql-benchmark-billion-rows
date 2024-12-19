@@ -1589,3 +1589,20 @@ before starting with any testing, you should know how to disect a query and unde
 
     - city table primary key is used to search for the city directly
     - the tabular plan shows that it used partition **p32** only to look into unlike previous tests.
+
+    <br/><br/>
+
+# Conclusion 
+
+partitioning is not always the to-go solution in case of large tables, where most of the cases indexes can help.
+
+however partitioning can be useful in these cases:
+
+- you are sure you want to operate on a sub-portion of the data, i.e. you have lots of queries sharing the same part of data to operate on, e.g. 
+    - users in specific region / country.
+    - sales in a specific time interval.
+
+- if the data you are selecting comes from some partitions not all of them **even if no pruning happens**.
+    - the performance in this case is better than using a single table (test 4)
+
+- if you are adding and removing partitions constantly, as removing a partition is faster than deleting elements from a single table.
