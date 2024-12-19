@@ -6,7 +6,7 @@ this experiment shows what you actually expect when working with 1 billion recor
 # intial schema
 this is the schema that we will start with.
 
-![initial schema](./images/initial-schema.png)
+![initial schema](./schema/initial-schema.png)
 
 the plan is to populate the tables before testing to contain these number of rows:
 - user table: 1 billion records
@@ -304,7 +304,7 @@ the plan is to populate the tables before testing to contain these number of row
 
 # schema after updates
 
-![schema after upadtes](./images/schema-after-updates.png)
+![schema after upadtes](./schema/schema-after-updates.png)
 - changed id cols to integer Auto inc. instead of varchar
 - added public ID column (*just an additional col. to increase row width*)
 
@@ -322,7 +322,7 @@ from partitioning in case of having large number of rows.
 
 
 - schema after adding the partitioned table 
-    ![schema after adding partitioned table](./images/schema-after-adding-user-partitioned.png)
+    ![schema after adding partitioned table](./schema/schema-after-adding-user-partitioned.png)
 
 - data is distributed evenly across partitions ( ~ 5 million records per partition ).
 - columns in both tables (user & user_partitioned) have the same cardinality.
@@ -436,14 +436,15 @@ from partitioning in case of having large number of rows.
 
 before starting with any testing, you should know how to disect a query and understand what is going on behind the scenes.
 
-1. check the query plan
+1. **check the query plan**
         
-    you can check in advance the steps the optimizer is going to take before running the query, 
-    the plan has many forms according to your needs :
+    you can check in advance the steps the optimizer is going to take before running the query, the plan has many forms according to your needs :
 
-    - visual 
+    - **visual** 
         
         ![visual plan](./understanding-query-plans/visual.png)
+
+        <br/>
 
         **how to produce this output ?**
 
@@ -454,30 +455,109 @@ before starting with any testing, you should know how to disect a query and unde
         - it shows any used indexes.
         - it shows some estimates about the number of produced rows in each step & the cost of each operation.
 
-    - tabular
+        <br/>
 
+    - **tabular**
+
+        it shows the same details explained in the output but in a tabular format.
+        
         ![tabular plan](./understanding-query-plans/tabular.png)
+
+        <br/>
 
         **how to produce this output ?**
 
-        produce the visula form, then select *tabular explain* form from the results window instead of *visual Explain*. 
+        produce the visual form, then select ***tabular explain*** form from the results window instead of ***visual Explain***. 
         
-        - it shows the same details explained in the output but in a tabular format.
+        <br/>
 
 
-    - json 
+    - **json** 
+        
+        it shows the same plan details as in previous forms but in more verbose way.
+
+        ```json
+            {
+                "query_block": {
+                    "select_id": 1,
+                    "cost_info": {
+                        "query_cost": "998.42"
+                    },
+                    "nested_loop": [
+                        {
+                            "table": {
+                                "table_name": "job",
+                                "access_type": "ref",
+                                "possible_keys": [
+                                    "PRIMARY",
+                                    "name_index"
+                                ],
+                                "key": "name_index",
+                                "used_key_parts": [
+                                    "name"
+                                ],
+                                "key_length": "402",
+                                "ref": [
+                                    "const"
+                                ],
+                                "rows_examined_per_scan": 1,
+                                "rows_produced_per_join": 1,
+                                "filtered": "100.00",
+                                "cost_info": {
+                                    "read_cost": "0.94",
+                                    "eval_cost": "0.10",
+                                    "prefix_cost": "1.04",
+                                    "data_read_per_join": "976"
+                                },
+                                "used_columns": [
+                                    "id",
+                                    "publicId",
+                                    "name",
+                                    "note"
+                                ]
+                            }
+                        },
+                        {
+                            "table": {
+                                "table_name": "user",
+                                "access_type": "ref",
+                                "possible_keys": [
+                                    "jobId"
+                                ],
+                                "key": "jobId",
+                                "used_key_parts": [
+                                    "jobId"
+                                ],
+                                "key_length": "4",
+                                "ref": [
+                                    "population.job.id"
+                                ],
+                                "rows_examined_per_scan": 906,
+                                "rows_produced_per_join": 906,
+                                "filtered": "100.00",
+                                        ...
+                            }
+                        }
+                    ]
+                }
+            }
+        ```
+        <br/>
+
+        **how to produce this output ?**
+
+        use `format=json` with the explain statement.
 
         ```sql
-           explain format=tree select * from user 
+           explain format=json select * from user 
             inner join job on user.jobId = job.id
             where job.name = 'product manager'; 
         ```
 
-        - it shows the same plan details as in previous.
-        - use it if you need more details about the plan.
+        <br/>
 
 
-    - tree
+    - **tree**
         
         a concise format for the query plan 
 
@@ -489,7 +569,7 @@ before starting with any testing, you should know how to disect a query and unde
 
         **how to produce it ?**
 
-        just add format=tree in the explain statement
+        just add `format=tree` in the explain statement
 
         ```sql
            explain format=tree select * from user 
@@ -497,13 +577,13 @@ before starting with any testing, you should know how to disect a query and unde
             where job.name = 'product manager'; 
         ```
 
-
-
     **Note :**
     
     > all numbers shown above like **rows** & **costs** are estimates calcuated from some statistics collected internally by the engine about each table and sometimes they are inaccurate.
 
-2. query plan analysis
+    <br/>
+
+2. **query plan analysis**
 
 - it shows the query plan in **tree form** after executing the query
 - it shows the actual time consumed beside the estimates made by the optimizer.
@@ -514,7 +594,7 @@ before starting with any testing, you should know how to disect a query and unde
         -> Index lookup on user using jobId (jobId=job.id)  (cost=997 rows=907) (never executed)
     ```
 
-
+    <br/><br/>
 
 
 <!-- (test O) -->
