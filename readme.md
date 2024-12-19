@@ -432,7 +432,93 @@ from partitioning in case of having large number of rows.
 
 <br/><br/>
 
-# test1 (test O)    
+# understand what is going on with a query
+
+before starting with any testing, you should know how to disect a query and understand what is going on behind the scenes.
+
+1. check the query plan
+        
+    you can check in advance the steps the optimizer is going to take before running the query, 
+    the plan has many forms according to your needs :
+
+    - visual 
+        
+        ![visual plan](./understanding-query-plans/visual.png)
+
+        **how to produce this output ?**
+
+        you can produce this output by highlighting the query you want to explain and hit the explain button ![explain query](./understanding-query-plans/explain-btn.png) on the sql editor in *[mysql workbench](https://www.mysql.com/products/workbench/)*
+
+        - we use it when we need to show in breief the steps of the query in a self explanatory way.
+        - it can tell you in general the strategy used to produce the need ed result.
+        - it shows any used indexes.
+        - it shows some estimates about the number of produced rows in each step & the cost of each operation.
+
+    - tabular
+
+        ![tabular plan](./understanding-query-plans/tabular.png)
+
+        **how to produce this output ?**
+
+        produce the visula form, then select *tabular explain* form from the results window instead of *visual Explain*. 
+        
+        - it shows the same details explained in the output but in a tabular format.
+
+
+    - json 
+
+        ```sql
+           explain format=tree select * from user 
+            inner join job on user.jobId = job.id
+            where job.name = 'product manager'; 
+        ```
+
+        - it shows the same plan details as in previous.
+        - use it if you need more details about the plan.
+
+
+    - tree
+        
+        a concise format for the query plan 
+
+        ```text
+        -> Nested loop inner join  (cost=998 rows=907)
+            -> Index lookup on job using name_index (name='product manager')  (cost=1.04 rows=1)
+            -> Index lookup on user using jobId (jobId=job.id)  (cost=997 rows=907)
+        ```
+
+        **how to produce it ?**
+
+        just add format=tree in the explain statement
+
+        ```sql
+           explain format=tree select * from user 
+            inner join job on user.jobId = job.id
+            where job.name = 'product manager'; 
+        ```
+
+
+
+    **Note :**
+    
+    > all numbers shown above like **rows** & **costs** are estimates calcuated from some statistics collected internally by the engine about each table and sometimes they are inaccurate.
+
+2. query plan analysis
+
+- it shows the query plan in **tree form** after executing the query
+- it shows the actual time consumed beside the estimates made by the optimizer.
+
+    ```text
+    -> Nested loop inner join  (cost=998 rows=907) (actual time=0.0306..0.0306 rows=0 loops=1)
+        -> Index lookup on job using name_index (name='product manager')  (cost=1.04 rows=1) (actual time=0.0284..0.0284 rows=0 loops=1)
+        -> Index lookup on user using jobId (jobId=job.id)  (cost=997 rows=907) (never executed)
+    ```
+
+
+
+
+<!-- (test O) -->
+# test1    
 **filter users by non unique city name**<br/>
 
 - **purpose:**
@@ -567,7 +653,8 @@ from partitioning in case of having large number of rows.
 
     <br/>
 
-# test2 (test O')
+<!-- (test O') -->
+# test2
 **filter users by non unique city name + sorting by user firstName column**
 
 - **purpose :**
@@ -723,7 +810,7 @@ from partitioning in case of having large number of rows.
     
     <br/>
 
-- **execution plan for the query on a single table :**
+- **query plan analysis for single table :**
         
     ```
     -> Limit: 20 row(s)  (actual time=66653..66653 rows=20 loops=1)
@@ -763,7 +850,8 @@ from partitioning in case of having large number of rows.
         
 <br/><br/>
     
-# test3 (test O'')
+<!-- (test O'') -->
+# test3
 
 **filter users by non unique city name + sorting by user firstName column + force using the index on firstName column**
 
@@ -933,7 +1021,8 @@ from partitioning in case of having large number of rows.
 
     <br/><br/>
 
-# test4 ( test O2 )
+<!-- ( test O2 ) -->
+# test4
 
 **filter users by unique city name + sorting by user firstName column**
 
@@ -1124,7 +1213,7 @@ from partitioning in case of having large number of rows.
     <br/>
 
 
-- **comparing execution plans :**
+- **comparing query plan analysis from single & partitioned tables :**
 
     - single table 
 
@@ -1178,7 +1267,8 @@ from partitioning in case of having large number of rows.
     <br/><br/>
 
 
-# test5 (test O3)
+<!-- (test O3) -->
+# test5
 
 **optimize test4 by using IDs instead of using string values**
 
