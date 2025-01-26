@@ -3,7 +3,26 @@ this experiment shows what you actually expect when working with 1 billion recor
 
 <br/>
 
-# intial schema
+
+# sections
+1. [initial schema](#initial-schema)
+2. [problems that may arise](#problems-that-may-arise)
+3. [populating database](#populating-database)
+4. [schema after updates](#schema-after-updates)
+5. [building a partitioned table](#building-a-partitioned-table)
+6. [data distribution inside tables](#data-distribution-inside-tables)
+7. [testing environment](#testing-environment)
+8. [how are tests evaluated](#how-are-tests-evaluated)
+9. [test1](#test1)
+10. [test2](#test2)
+11. [test3](#test3)
+12. [test4](#test4)
+13. [test5](#test5)
+14. [conclusion](#conclusion)
+
+<br/>
+
+# initial schema 
 this is the schema that we will start with.
 
 ![initial schema](./schema/initial-schema.png)
@@ -369,7 +388,7 @@ from partitioning in case of having large number of rows.
 
 <br/><br/>
 
-# How are tests evaluated
+# how are tests evaluated
 
 - the following tests are based on the bash script **[load-test.sh](./load-test.sh)**.
     - the script initiates a mysqldump command and watches **cpu** & **memory** usage during the test.
@@ -765,7 +784,6 @@ before starting with any testing, you should know how to disect a query and unde
             order by firstName
             limit 20;
         ```
-
         <br/>
 
     - partitioned table:
